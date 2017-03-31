@@ -1,7 +1,7 @@
 module.exports = {
 
-  ['session.connect']: (data) => {
-
+  ['session.connect']: (context, payload) => {
+    console.log('Got session.connect event with data:', payload);
   }
 
 };

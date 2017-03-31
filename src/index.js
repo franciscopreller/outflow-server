@@ -9,6 +9,10 @@ context.on('ready', () => {
     console.log('%%% Telnet client running as process: %s on port: %s', process.pid, PORT);
 
     // Connect all handlers
-    Handlers.handlerNames.forEach((handler) => Handlers.bindHandler(handler, context));
+    console.log('Handlers', Handlers.handlerNames);
+    Handlers.handlerNames.forEach((handler) => {
+      console.log('Handler:', handler);
+      Handlers.bindHandler(handler, context)
+    });
   });
 });
