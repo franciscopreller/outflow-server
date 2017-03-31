@@ -7,8 +7,10 @@ const ansiHTML = require('./ansiParse');
 const actions = require('../handlers/session/actions');
 
 class Session {
-  constructor(connection, socket) {
-    this.socket = socket;
+  constructor(connection, context) {
+    this.context = context;
+    this.pub = context.socket('PUB');
+    this.sub = context.socket('SUB');
     this.host = connection.host;
     this.port = connection.port;
     this.uuid = connection.uuid;
@@ -51,14 +53,23 @@ class Session {
   }
 
   emit(data) {
-    this.socket.emit('ws.message', data);
+    this.pub.connect(`session.${this.uuid}`, () => {
+      this.pub.write(JSON.stringify(data))
+    });
   }
 
   bindCommandHandler() {
-    this.socket.on(`session.command.${this.uuid}`, (data) => {
-      console.log('Received command', data.payload.command);
-      this.receiveCommand(data.payload.command);
+    this.sub.on('data', (data) => {
+      let command = '';
+      try {
+        command = JSON.parse(data).payload.command;
+      } catch(err) {
+        console.error('Command handler could not parse');
+      }
+      console.log('Received command', command);
+      this.receiveCommand(command);
     });
+    this.sub.connect(`session.command.${this.uuid}`);
   }
 
   bindOutputProcessing() {
@@ -112,8 +123,8 @@ class Session {
   sendOutput(output) {
     const lines = ansiHTML.toLineObjects({str: output.toString()});
     this.emit(actions.sessionOutput({
-      lines,
-      uuid: this.uuid,
+        lines,
+        uuid: this.uuid,
     }));
   }
 
@@ -128,20 +139,5 @@ class Session {
     this.output.write(command + '\n');
   }
 
-  logOutputToFile(output) {
-    const fileName = `outflow_${this.host}_${this.timestamp}.log`;
-    const file = `/${fileName}`;
-    fs.open(file, 'a+', (err, fd) => {
-      if (err) {
-        console.error(`Could not open file ${file}:`, err.message);
-      } else {
-        fs.write(fd, output, {encoding: 'utf8'}, (err) => {
-          if (err) {
-            console.error(`Could not write to file ${file}`, err.message);
-          }
-        });
-      }
-    });
-  }
 }
 module.exports = Session;
