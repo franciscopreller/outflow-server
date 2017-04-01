@@ -25,7 +25,6 @@ function bindHandler(handlerName, context) {
   const sub = context.socket('PULL');
   console.log(`Binding subscriber handler to: ${handlerName}`);
   sub.on('data', (data) => {
-    console.log(`${handlerName} got data`);
     let payload = {};
     try {
       payload = Object.assign({}, JSON.parse(data));

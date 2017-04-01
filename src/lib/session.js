@@ -9,8 +9,8 @@ const actions = require('../handlers/session/actions');
 class Session {
   constructor(connection, context) {
     this.context = context;
-    this.pub = context.socket('PUB');
-    this.sub = context.socket('SUB');
+    this.pub = context.socket('PUSH');
+    this.sub = context.socket('PULL');
     this.host = connection.host;
     this.port = connection.port;
     this.uuid = connection.uuid;
@@ -29,27 +29,51 @@ class Session {
     this.bindCommandHandler();
   }
 
-  connect() {
+  start() {
     this.conn = net.createConnection(this.port, this.host, (err) => {
-      if (err) {
-        // Send error
-        console.error('Error connecting to remote server', err);
-        this.sendError(err);
-      } else {
-        // Bind IO
+      // Error feedback is handled as event
+      if (!err) {
+        // Emit connected back to client
+        this.emit(actions.sessionConnected({ uuid: this.uuid }));
+
+        // Set the connection pipes
         this.conn.pipe(this.input);
         this.output.pipe(this.conn);
+      } else {
+        // Deal with any immediate errors
+        this.emit(actions.sessionError({ uuid: this.uuid, error: this.getConnectionError(err) }));
+        this.conn.close();
       }
     });
 
     this.conn.on('close', () => {
-      console.log(`(${this.host}) lost connection...`);
       this.conn.unpipe(this.input);
       this.output.unpipe(this.conn);
+
+      // Emit disconnected
+      this.emit(actions.sessionDisconnected({ uuid: this.uuid }));
     });
+
     this.conn.on('error', (err) => {
-      console.log('Connection error', err);
+      this.emit(actions.sessionError({ uuid: this.uuid, error: this.getConnectionError(err) }));
     });
+  }
+
+  getConnectionError(err) {
+    let error = 'There was an error from the remote telnet client';
+    switch (err.code) {
+      case 'ENOTFOUND':
+        error = `Could not connect to ${this.host}:${this.port}. Host not found.`;
+        break;
+      case 'ECONNREFUSED':
+        error = `Could not connect to ${this.host}:${this.port}. Connection refused.`;
+        break;
+      default:
+        console.error('Unknown telnet connection error', err);
+        break;
+    }
+
+    return error;
   }
 
   emit(data) {
@@ -62,7 +86,7 @@ class Session {
     this.sub.on('data', (data) => {
       let command = '';
       try {
-        command = JSON.parse(data).payload.command;
+        command = JSON.parse(data).command;
       } catch(err) {
         console.error('Command handler could not parse');
       }
@@ -84,7 +108,7 @@ class Session {
       this.timeout = setTimeout(() => {
         this.sendOutput(this.buffer);
         this.buffer = '';
-      }, 10);
+      }, 20);
     });
 
     // Telnet events
@@ -125,13 +149,6 @@ class Session {
     this.emit(actions.sessionOutput({
         lines,
         uuid: this.uuid,
-    }));
-  }
-
-  sendError(error) {
-    this.emit(actions.sessionError({
-      error,
-      uuid: this.uuid,
     }));
   }
 
