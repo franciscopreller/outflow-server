@@ -8,7 +8,8 @@ function getTelnetOption(option) {
 function emit(context, uuid, action) {
   const pub = context.socket('PUSH');
   pub.connect(`session.${uuid}`, () => {
-    pub.write(JSON.stringify(action))
+    pub.write(JSON.stringify(action));
+    pub.end();
   });
 }
 

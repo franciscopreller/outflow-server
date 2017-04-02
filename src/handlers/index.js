@@ -20,8 +20,9 @@ const handlers = getHandlers();
  *
  * @param handlerName
  * @param context
+ * @param redis
  */
-function bindHandler(handlerName, context) {
+function bindHandler(handlerName, context, redis) {
   const sub = context.socket('PULL');
   console.log(`Binding subscriber handler to: ${handlerName}`);
   sub.on('data', (data) => {
@@ -34,7 +35,7 @@ function bindHandler(handlerName, context) {
 
     const handler = handlers[handlerName];
     if (typeof handler === 'function') {
-      handler(context, payload);
+      handler(context, redis, payload);
     } else {
       console.error(`Invalid handler for ${handlerName}`);
     }

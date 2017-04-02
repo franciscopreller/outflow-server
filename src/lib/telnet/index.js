@@ -6,6 +6,7 @@ const TelnetOutput = require('telnet-stream').TelnetOutput;
 const ansiHTML = require('../ansiParse');
 const constants = require('./constants');
 const handlers = require('./handlers');
+const utils = require('../utils');
 
 // This being here makes me think there's a problem, should be moved to the session handler namespace
 const actions = require('../../handlers/session/actions');
@@ -19,7 +20,6 @@ class TelnetSession {
     this.uuid = connection.uuid;
     this.data = '';
     this.buffer = '';
-    this.timestamp = Date.now();
     this.timeout = null;
 
     // Telnet handlers
@@ -46,7 +46,6 @@ class TelnetSession {
       } else {
         // Deal with any immediate errors
         this.emit(actions.sessionError({ uuid: this.uuid, error: this.getConnectionError(err) }));
-        this.conn.close();
       }
     });
 
@@ -92,35 +91,20 @@ class TelnetSession {
   }
 
   bindDisconnectHandler() {
-    const sub = this.context.socket('PULL');
-    sub.on('data', (data) => {
-      let uuid = '';
-      try {
-        uuid = JSON.parse(data).uuid;
-      } catch(err) {
-        console.error('Command handler could not parse');
-      }
-      if (this.uuid === uuid) {
-        console.log(`Disconnecting from ${uuid}`);
+    utils.subscribe(this.context, `session.disconnect.${this.uuid}`, (payload) => {
+      if (this.uuid === payload.uuid) {
+        console.log(`Disconnecting from ${payload.uuid}`);
         this.conn.destroy();
       }
     });
-    sub.connect(`session.disconnect.${this.uuid}`);
   }
 
   bindCommandHandler() {
-    const sub = this.context.socket('PULL');
-    sub.on('data', (data) => {
-      let command = '';
-      try {
-        command = JSON.parse(data).command;
-      } catch(err) {
-        console.error('Command handler could not parse');
+    utils.subscribe(this.context, `session.command.${this.uuid}`, (payload) => {
+      if (payload.command) {
+        this.receiveCommand(payload.command);
       }
-      console.log('Received command', command);
-      this.receiveCommand(command);
     });
-    sub.connect(`session.command.${this.uuid}`);
   }
 
   bindOutputProcessing() {
@@ -148,7 +132,6 @@ class TelnetSession {
   }
 
   sendOutput(output) {
-    console.log(output.toString());
     const lines = ansiHTML.toLineObjects({str: output.toString()});
     this.emit(actions.sessionOutput({
         lines,
