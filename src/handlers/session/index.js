@@ -1,13 +1,18 @@
-module.exports = {
+const constants = require('./constants');
 
-  ['session.connect']: (context, payload) => {
-    const TelnetConnector = require('../../lib/session');
-    const { connection } = payload;
-    const Session = new TelnetConnector(connection, context);
-    console.log('Connection request, connecting to...', connection);
+module.exports = {
+  [constants.SESSION_CONNECT]: (context, payload) => {
+    const TelnetSession = require('../../lib/telnet');
+    const Session = new TelnetSession(payload.connection, context);
 
     // Connection to session
-    Session.connect();
-  }
-
+    Session.start();
+  },
+  [constants.SESSION_DISCONNECT]: (context, payload) => {
+    const pub = context.socket('PUSH');
+    const queueName = `${constants.SESSION_DISCONNECT}.${payload.uuid}`;
+    pub.connect(queueName, () => {
+      pub.write(JSON.stringify(payload), 'utf-8');
+    });
+  },
 };

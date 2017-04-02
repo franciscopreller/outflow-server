@@ -15,3 +15,17 @@ exports.sessionError = ({ error, uuid }) => ({
     uuid,
   }
 });
+
+exports.sessionConnected = ({ uuid }) => ({
+  type: constants.SESSION_CONNECTED,
+  payload: {
+    uuid,
+  }
+});
+
+exports.sessionDisconnected = ({ uuid }) => ({
+  type: constants.SESSION_DISCONNECTED,
+  payload: {
+    uuid,
+  }
+});
