@@ -3,20 +3,22 @@ const fs = require('fs');
 const net = require('net');
 const TelnetInput = require('telnet-stream').TelnetInput;
 const TelnetOutput = require('telnet-stream').TelnetOutput;
-const ansiHTML = require('./ansiParse');
-const actions = require('../handlers/session/actions');
+const ansiHTML = require('../ansiParse');
+const constants = require('./constants');
+const handlers = require('./handlers');
 
-class Session {
+// This being here makes me think there's a problem, should be moved to the session handler namespace
+const actions = require('../../handlers/session/actions');
+
+class TelnetSession {
   constructor(connection, context) {
     this.context = context;
     this.pub = context.socket('PUSH');
-    this.sub = context.socket('PULL');
     this.host = connection.host;
     this.port = connection.port;
     this.uuid = connection.uuid;
     this.data = '';
     this.buffer = '';
-    this.conn = null;
     this.timestamp = Date.now();
     this.timeout = null;
 
@@ -27,6 +29,8 @@ class Session {
     // Bindings
     this.bindOutputProcessing();
     this.bindCommandHandler();
+    this.bindDisconnectHandler();
+    this.emit = this.emit.bind(this);
   }
 
   start() {
@@ -51,7 +55,9 @@ class Session {
       this.output.unpipe(this.conn);
 
       // Emit disconnected
-      this.emit(actions.sessionDisconnected({ uuid: this.uuid }));
+      setTimeout(() => {
+        this.emit(actions.sessionDisconnected({ uuid: this.uuid }));
+      }, 100);
     });
 
     this.conn.on('error', (err) => {
@@ -68,6 +74,9 @@ class Session {
       case 'ECONNREFUSED':
         error = `Could not connect to ${this.host}:${this.port}. Connection refused.`;
         break;
+      case 'ECONNRESET':
+        error = `The server at ${this.host}:${this.port} closed the connection.`;
+        break;
       default:
         console.error('Unknown telnet connection error', err);
         break;
@@ -82,8 +91,26 @@ class Session {
     });
   }
 
+  bindDisconnectHandler() {
+    const sub = this.context.socket('PULL');
+    sub.on('data', (data) => {
+      let uuid = '';
+      try {
+        uuid = JSON.parse(data).uuid;
+      } catch(err) {
+        console.error('Command handler could not parse');
+      }
+      if (this.uuid === uuid) {
+        console.log(`Disconnecting from ${uuid}`);
+        this.conn.destroy();
+      }
+    });
+    sub.connect(`session.disconnect.${this.uuid}`);
+  }
+
   bindCommandHandler() {
-    this.sub.on('data', (data) => {
+    const sub = this.context.socket('PULL');
+    sub.on('data', (data) => {
       let command = '';
       try {
         command = JSON.parse(data).command;
@@ -93,7 +120,7 @@ class Session {
       console.log('Received command', command);
       this.receiveCommand(command);
     });
-    this.sub.connect(`session.command.${this.uuid}`);
+    sub.connect(`session.command.${this.uuid}`);
   }
 
   bindOutputProcessing() {
@@ -112,39 +139,16 @@ class Session {
     });
 
     // Telnet events
-    this.input.on('command', (command) => {
-      // Received: IAC <command> - See RFC 854
-      console.log(`(${this.host}) got command:`, command);
-    });
-
-    this.input.on('do', (option) => {
-      // Received: IAC DO <option> - See RFC 854
-      console.log(`(${this.host}) got do:`, option);
-    });
-
-    this.input.on('dont', (option) => {
-      // Received: IAC DONT <option> - See RFC 854
-      console.log(`(${this.host}) got dont:`, option);
-    });
-
-    this.input.on('sub', (option, buffer) => {
-      // Received: IAC SB <option> <buffer> IAC SE - See RFC 855
-      console.log(`(${this.host}) got sub:`, option, buffer);
-    });
-
-    this.input.on('will', (option) => {
-      // Received: IAC WILL <option> - See RFC 854
-      console.log(`(${this.host}) got will:`, option);
-    });
-
-    this.input.on('wont', (option) => {
-      // Received: IAC WONT <option> - See RFC 854
-      console.log(`(${this.host}) got wont:`, option);
-    });
-
+    this.input.on('command', handlers.commandHandler(this.context, this.uuid));
+    this.input.on('do', handlers.doHandler(this.context, this.uuid));
+    this.input.on('dont', handlers.dontHandler(this.context, this.uuid));
+    this.input.on('sub', handlers.subHandler(this.context, this.uuid));
+    this.input.on('will', handlers.willHandler(this.context, this.uuid));
+    this.input.on('wont', handlers.wontHandler(this.context, this.uuid));
   }
 
   sendOutput(output) {
+    console.log(output.toString());
     const lines = ansiHTML.toLineObjects({str: output.toString()});
     this.emit(actions.sessionOutput({
         lines,
@@ -157,4 +161,4 @@ class Session {
   }
 
 }
-module.exports = Session;
+module.exports = TelnetSession;
