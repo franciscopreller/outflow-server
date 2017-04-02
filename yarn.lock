@@ -145,13 +145,13 @@ debug@2.2.0:
   dependencies:
     ms "0.7.1"
 
-debug@2.6.1:
+debug@2.6.1, debug@^2.2.0:
   version "2.6.1"
   resolved "http://build.flamingo.io:4873/debug/-/debug-2.6.1.tgz#79855090ba2c4e3115cc7d8769491d58f0491351"
   dependencies:
     ms "0.7.2"
 
-debug@2.6.3, debug@^2.2.0:
+debug@2.6.3:
   version "2.6.3"
   resolved "http://build.flamingo.io:4873/debug/-/debug-2.6.3.tgz#0f7eb8c30965ec08c72accfa0130c8b79984141d"
   dependencies:
@@ -496,7 +496,7 @@ mime-db@~1.27.0:
   version "1.27.0"
   resolved "http://build.flamingo.io:4873/mime-db/-/mime-db-1.27.0.tgz#820f572296bbd20ec25ed55e5b5de869e5436eb1"
 
-mime-types@~2.1.11, mime-types@~2.1.13:
+mime-types@~2.1.11, mime-types@~2.1.15:
   version "2.1.15"
   resolved "http://build.flamingo.io:4873/mime-types/-/mime-types-2.1.15.tgz#a4ebf5064094569237b8cf70046776d09fc92aed"
   dependencies:
@@ -524,8 +524,8 @@ minimist@0.0.8:
   resolved "http://build.flamingo.io:4873/minimist/-/minimist-0.0.8.tgz#857fcabfc3397d2625b8228262e86aa7a011b05d"
 
 minimist@^1.1.0:
-  version "1.1.0"
-  resolved "http://build.flamingo.io:4873/minimist/-/minimist-1.1.0.tgz#cdf225e8898f840a258ded44fc91776770afdc93"
+  version "1.2.0"
+  resolved "http://build.flamingo.io:4873/minimist/-/minimist-1.2.0.tgz#a35008b20f41383eec1fb914f4cd5df79a264284"
 
 minimist@~0.0.1:
   version "0.0.10"
@@ -562,8 +562,8 @@ ms@0.7.2:
   resolved "http://build.flamingo.io:4873/ms/-/ms-0.7.2.tgz#ae25cf2512b3885a1d95d7f037868d8431124765"
 
 mute-stream@~0.0.4:
-  version "0.0.6"
-  resolved "http://build.flamingo.io:4873/mute-stream/-/mute-stream-0.0.6.tgz#48962b19e169fd1dfc240b3f1e7317627bbc47db"
+  version "0.0.7"
+  resolved "http://build.flamingo.io:4873/mute-stream/-/mute-stream-0.0.7.tgz#3075ce93bc21b8fab43e1bc4da7e8115ed1e7bab"
 
 nconf@0.6.9, nconf@~0.6.9:
   version "0.6.9"
@@ -795,11 +795,11 @@ type-detect@^1.0.0:
   resolved "http://build.flamingo.io:4873/type-detect/-/type-detect-1.0.0.tgz#762217cc06db258ec48908a1298e8b95121e8ea2"
 
 type-is@~1.6.14:
-  version "1.6.14"
-  resolved "http://build.flamingo.io:4873/type-is/-/type-is-1.6.14.tgz#e219639c17ded1ca0789092dd54a03826b817cb2"
+  version "1.6.15"
+  resolved "http://build.flamingo.io:4873/type-is/-/type-is-1.6.15.tgz#cab10fb4909e441c82842eafe1ad646c81804410"
   dependencies:
     media-typer "0.3.0"
-    mime-types "~2.1.13"
+    mime-types "~2.1.15"
 
 unpipe@~1.0.0:
   version "1.0.0"
