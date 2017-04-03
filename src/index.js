@@ -14,6 +14,12 @@ context.on('ready', () => {
     const redis = new Redis(REDIS_URL);
 
     // Connect all handlers
-    Handlers.handlerNames.forEach((handler) => Handlers.bindHandler(handler, context, redis));
+    const subscribers = Handlers.handlerNames.map((handler) => Handlers.bindHandler(handler, context, redis));
+    process.on('SIGTERM', () => process.exit(0));
+    process.on('exit', () => {
+      console.log('Exiting gracefully...');
+      subscribers.forEach((sub) => sub.close());
+      context.close();
+    });
   });
 });

@@ -1,19 +1,12 @@
 const actions = require('./actions');
 const constants = require('./constants');
+const utils = require('../utils');
 
 function getTelnetOption(option) {
   return Object.keys(constants).find(key => constants[key] === parseInt(option)) || option;
 }
 
-function emit(context, uuid, action) {
-  const pub = context.socket('PUSH');
-  pub.connect(`session.${uuid}`, () => {
-    pub.write(JSON.stringify(action));
-    pub.end();
-  });
-}
-
-function commandHandler(context, uuid) {
+function commandHandler(context, socketId, uuid) {
   return (option) => {
     switch (option) {
       // @TODO: Add handlers
@@ -24,7 +17,7 @@ function commandHandler(context, uuid) {
   };
 }
 
-function doHandler(context, uuid) {
+function doHandler(context, socketId, uuid) {
   return (option) => {
     switch (option) {
       // @TODO: Add handlers
@@ -35,7 +28,7 @@ function doHandler(context, uuid) {
   };
 }
 
-function dontHandler(context, uuid) {
+function dontHandler(context, socketId, uuid) {
   return (option) => {
     switch (option) {
       // @TODO: Add handlers
@@ -46,7 +39,7 @@ function dontHandler(context, uuid) {
   };
 }
 
-function subHandler(context, uuid) {
+function subHandler(context, socketId, uuid) {
   return (option, buffer) => {
     switch (option) {
       // @TODO: Add handlers
@@ -57,22 +50,22 @@ function subHandler(context, uuid) {
   };
 }
 
-function willHandler(context, uuid) {
+function willHandler(context, socketId, uuid) {
   return (option) => {
     switch (option) {
       case constants.TELNET_HIDE_ECHO:
-        emit(context, uuid, actions.sendWillHideEcho(uuid));
+        utils.reply(context, socketId, actions.sendWillHideEcho(uuid));
         break;
     }
     console.log(`WILL: ${getTelnetOption(option)}`);
   };
 }
 
-function wontHandler(context, uuid) {
+function wontHandler(context, socketId, uuid) {
   return (option) => {
     switch (option) {
       case constants.TELNET_HIDE_ECHO:
-        emit(context, uuid, actions.sendWontHideEcho(uuid));
+        utils.reply(context, socketId, actions.sendWontHideEcho(uuid));
         break;
     }
     console.log(`WONT: ${getTelnetOption(option)}`);

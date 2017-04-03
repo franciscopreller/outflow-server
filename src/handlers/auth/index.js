@@ -3,10 +3,11 @@ const utils = require('../../lib/utils');
 
 module.exports = {
 
-  [constants.AUTH_WS_UPDATE]: (context, redis, payload) => {
-    const { uuid, socketId } = payload;
+  [constants.AUTH_WS_UPDATE]: (context, redis, data) => {
+    const { socketId } = data;
+    const { uuid } = data.payload;
     redis.set(`socket.${socketId}.userId`, JSON.stringify(uuid)).then(() => {
-      utils.publish(context, `${constants.AUTH_LISTENER}.${payload.uuid}`, payload);
+      utils.reply(context, socketId, data.payload);
     }).catch((error) => {
       console.error('Could not create connection in cache', error);
     });

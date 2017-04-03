@@ -1,26 +1,27 @@
 const _ = require('lodash');
 const fs = require('fs');
 const net = require('net');
+const EventEmitter = require('events');
 const TelnetInput = require('telnet-stream').TelnetInput;
 const TelnetOutput = require('telnet-stream').TelnetOutput;
 const ansiHTML = require('../ansiParse');
 const constants = require('./constants');
 const handlers = require('./handlers');
 const utils = require('../utils');
-
-// This being here makes me think there's a problem, should be moved to the session handler namespace
-const actions = require('../../handlers/session/actions');
+const session = require('../../handlers/session/constants');
 
 class TelnetSession {
   constructor(connection, context) {
+    this.emitter = new EventEmitter();
     this.context = context;
-    this.pub = context.socket('PUSH');
     this.host = connection.host;
     this.port = connection.port;
     this.uuid = connection.uuid;
+    this.socketId = connection.socketId;
     this.data = '';
     this.buffer = '';
     this.timeout = null;
+    this.subscribers = [];
 
     // Telnet handlers
     this.input = new TelnetInput();
@@ -30,38 +31,34 @@ class TelnetSession {
     this.bindOutputProcessing();
     this.bindCommandHandler();
     this.bindDisconnectHandler();
-    this.emit = this.emit.bind(this);
   }
 
   start() {
     this.conn = net.createConnection(this.port, this.host, (err) => {
       // Error feedback is handled as event
       if (!err) {
-        // Emit connected back to client
-        this.emit(actions.sessionConnected({ uuid: this.uuid }));
+        this.emitter.emit('connected');
 
         // Set the connection pipes
         this.conn.pipe(this.input);
         this.output.pipe(this.conn);
-      } else {
-        // Deal with any immediate errors
-        this.emit(actions.sessionError({ uuid: this.uuid, error: this.getConnectionError(err) }));
       }
     });
 
     this.conn.on('close', () => {
       this.conn.unpipe(this.input);
       this.output.unpipe(this.conn);
+      this.subscribers.forEach((sub) => sub.close());
 
       // Emit disconnected
-      setTimeout(() => {
-        this.emit(actions.sessionDisconnected({ uuid: this.uuid }));
-      }, 100);
+      setTimeout(() => this.emitter.emit('closed'), 100);
     });
 
     this.conn.on('error', (err) => {
-      this.emit(actions.sessionError({ uuid: this.uuid, error: this.getConnectionError(err) }));
+      this.emitter.emit('error', this.getConnectionError(err));
     });
+
+    return Promise.resolve(this.emitter);
   }
 
   getConnectionError(err) {
@@ -84,27 +81,20 @@ class TelnetSession {
     return error;
   }
 
-  emit(data) {
-    this.pub.connect(`session.${this.uuid}`, () => {
-      this.pub.write(JSON.stringify(data))
-    });
-  }
-
   bindDisconnectHandler() {
-    utils.subscribe(this.context, `session.disconnect.${this.uuid}`, (payload) => {
-      if (this.uuid === payload.uuid) {
-        console.log(`Disconnecting from ${payload.uuid}`);
+    this.subscribers.push(utils.subscribe(this.context, `${session.SESSION_DISCONNECT}.${this.uuid}`, (uuid) => {
+      if (this.uuid === uuid) {
         this.conn.destroy();
       }
-    });
+    }));
   }
 
   bindCommandHandler() {
-    utils.subscribe(this.context, `session.command.${this.uuid}`, (payload) => {
-      if (payload.command) {
-        this.receiveCommand(payload.command);
+    this.subscribers.push(utils.subscribe(this.context, `${session.SESSION_COMMAND}.${this.uuid}`, (command) => {
+      if (typeof command !== 'undefined') {
+        this.receiveCommand(command);
       }
-    });
+    }));
   }
 
   bindOutputProcessing() {
@@ -123,20 +113,17 @@ class TelnetSession {
     });
 
     // Telnet events
-    this.input.on('command', handlers.commandHandler(this.context, this.uuid));
-    this.input.on('do', handlers.doHandler(this.context, this.uuid));
-    this.input.on('dont', handlers.dontHandler(this.context, this.uuid));
-    this.input.on('sub', handlers.subHandler(this.context, this.uuid));
-    this.input.on('will', handlers.willHandler(this.context, this.uuid));
-    this.input.on('wont', handlers.wontHandler(this.context, this.uuid));
+    this.input.on('command', handlers.commandHandler(this.context, this.socketId, this.uuid));
+    this.input.on('do', handlers.doHandler(this.context, this.socketId, this.uuid));
+    this.input.on('dont', handlers.dontHandler(this.context, this.socketId, this.uuid));
+    this.input.on('sub', handlers.subHandler(this.context, this.socketId, this.uuid));
+    this.input.on('will', handlers.willHandler(this.context, this.socketId, this.uuid));
+    this.input.on('wont', handlers.wontHandler(this.context, this.socketId, this.uuid));
   }
 
   sendOutput(output) {
-    const lines = ansiHTML.toLineObjects({str: output.toString()});
-    this.emit(actions.sessionOutput({
-        lines,
-        uuid: this.uuid,
-    }));
+    const data = ansiHTML.toLineObjects({str: output.toString()});
+    this.emitter.emit('data', data);
   }
 
   receiveCommand(command) {

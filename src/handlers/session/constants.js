@@ -7,3 +7,4 @@ exports.SESSION_CLOSED = 'SESSION_CLOSED';
 // Incoming events
 exports.SESSION_CONNECT = 'session.connect';
 exports.SESSION_DISCONNECT = 'session.disconnect';
+exports.SESSION_COMMAND = 'session.command';
