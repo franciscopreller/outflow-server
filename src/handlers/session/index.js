@@ -11,6 +11,7 @@ module.exports = {
     const session = new TelnetSession({ host, port, uuid, socketId }, context);
 
     // Connection to session
+    console.log(`Initiating new session connection to ${host}:${port}`);
     session.start().then((telnet) => {
       telnet.on('connected', () => utils.reply(context, socketId, actions.sessionConnected({ uuid })));
       telnet.on('closed', () => utils.reply(context, socketId, actions.sessionDisconnected({ uuid })));

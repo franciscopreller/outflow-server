@@ -7,6 +7,7 @@
  * @returns {*}
  */
 function reply(context, socketId, payload) {
+  console.log('Publishing reply', payload);
   publish(context, `ws.reply.${socketId}`, payload);
 }
 
@@ -20,7 +21,6 @@ function publish(context, queueName, payload) {
   const pub = context.socket('PUB');
   pub.connect(queueName, () => {
     pub.write(JSON.stringify(payload), 'utf8');
-    pub.close();
   });
 }
 
