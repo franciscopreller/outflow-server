@@ -1,170 +1,108 @@
+const AnsiParser = require('ansi-parser');
+const FOREGROUND_TYPE = 'FOREGROUND_TYPE';
+const BACKGROUND_TYPE = 'BACKGROUND_TYPE';
+const ATTRIBUTE_TYPE = 'ATTRIBUTE_TYPE';
+const RESET_TYPE = 'RESET';
+
 class AnsiParse {
 
-  /**
-   * The default ansi code
-   */
-  static get defaultAnsiCode() {
-    return {
-      types: [],
-      fg: 'white',
-      bg: 'black',
-    };
+  static valueIsForegroundCode(code) {
+    return AnsiParse.ansiCodes[code].type === FOREGROUND_TYPE;
+  }
+
+  static valueIsBackgroundCode(code) {
+    return AnsiParse.ansiCodes[code].type === BACKGROUND_TYPE;
+  }
+
+  static valueIsAttributeCode(code) {
+    return AnsiParse.ansiCodes[code].type === ATTRIBUTE_TYPE;
   }
 
   /**
    * List of supported ansi codes
    */
   static get ansiCodes() {
-    return {
-      '0': {reset: true},
-      '1': {type: 'bold'},
-      '3': {type: 'italic'},
-      '4': {type: 'underline'},
-      '5': {type: 'blink'},
-      '7': {type: 'invert'},
-      '9': {type: 'strikethrough'},
-      '30': {fg: 'grey'},
-      '31': {fg: 'red'},
-      '32': {fg: 'green'},
-      '33': {fg: 'yellow'},
-      '34': {fg: 'blue'},
-      '35': {fg: 'magenta'},
-      '36': {fg: 'cyan'},
-      '37': {fg: 'white'},
-      '40': {bg: 'black'},
-      '41': {bg: 'red'},
-      '42': {bg: 'green'},
-      '43': {bg: 'yellow'},
-      '44': {bg: 'blue'},
-      '45': {bg: 'magenta'},
-      '46': {bg: 'cyan'},
-      '47': {bg: 'white'},
-    };
+    return Object.assign({}, {
+      '0': {type: RESET_TYPE},
+      '1': {type: ATTRIBUTE_TYPE, value: 'at-bold'},
+      '3': {type: ATTRIBUTE_TYPE, value: 'at-italic'},
+      '4': {type: ATTRIBUTE_TYPE, value: 'at-underline'},
+      '5': {type: ATTRIBUTE_TYPE, value: 'at-blink'},
+      '7': {type: ATTRIBUTE_TYPE, value: 'at-invert'},
+      '9': {type: ATTRIBUTE_TYPE, value: 'at-strikethrough'},
+      '30': {type: FOREGROUND_TYPE, value: 'fg-gray'},
+      '31': {type: FOREGROUND_TYPE, value: 'fg-red'},
+      '32': {type: FOREGROUND_TYPE, value: 'fg-green'},
+      '33': {type: FOREGROUND_TYPE, value: 'fg-yellow'},
+      '34': {type: FOREGROUND_TYPE, value: 'fg-blue'},
+      '35': {type: FOREGROUND_TYPE, value: 'fg-magenta'},
+      '36': {type: FOREGROUND_TYPE, value: 'fg-cyan'},
+      '37': {type: FOREGROUND_TYPE, value: 'fg-white'},
+      '40': {type: BACKGROUND_TYPE, value: 'bg-black'},
+      '41': {type: BACKGROUND_TYPE, value: 'bg-red'},
+      '42': {type: BACKGROUND_TYPE, value: 'bg-green'},
+      '43': {type: BACKGROUND_TYPE, value: 'bg-yellow'},
+      '44': {type: BACKGROUND_TYPE, value: 'bg-blue'},
+      '45': {type: BACKGROUND_TYPE, value: 'bg-magenta'},
+      '46': {type: BACKGROUND_TYPE, value: 'bg-cyan'},
+      '47': {type: BACKGROUND_TYPE, value: 'bg-white'},
+    });
   };
 
   /**
-   * Parses an ansi string into separate line objects
-   *
-   * @param {*} str
-   * @param {*} carryOver
+   * Handles ANSI parsing with AnsiParser module, but optimises the payload for minimal data
+   * @param data
+   * @returns {Array}
    */
-  static toLineObjects({str, carryOver = ''}) {
-    let char;
-    let lastCodesObj = this.defaultAnsiCode;
-    let lineArrays = [];
-    let lineStr = '';
-    for (let i = 0; i < str.length; i++) {
-      char = str[i];
-      switch (char) {
-        case '\n':
-          let linesObj = this.toObject({ansiCodes: lastCodesObj, str: lineStr});
-          lastCodesObj = linesObj[linesObj.length - 1].codes;
-          lineArrays.push(linesObj);
-          lineStr = '';
-          break;
-        default:
-          lineStr += char;
-          break;
-      }
-    }
-    if (lineStr.length) {
-      lineArrays.push(this.toObject({ansiCodes: lastCodesObj, str: lineStr}));
-      //carryOver = lineStr;
-    }
-    return lineArrays;
-  }
+  static parse(data) {
+    let buffer = '';
+    let parsed = [];
 
-  /**
-   * Parses a string into an array of objects which make up a single line,
-   * each object has theior own ansi codes or params
-   *
-   * If ansiCodes are passed, then those will be merged with any new ansi codes found during parsing
-   *
-   * @param {*} ansiCodes
-   * @param {*} str
-   */
-  static toObject({ansiCodes = this.defaultAnsiCode, str}) {
-    let started;
-    let output = [{
-      codes: ansiCodes,
-      text: '',
-    }];
-    for (let i = 0; i < str.length; i++) {
-      let char = str[i];
-      let index = (output.length - 1);
-      switch (char) {
-        case '\u001b':
-          // Only on the first iteration should we skip this
-          let codes = this.getCodes({str, index: i, ansiCodes});
-          i = codes.index;
-          if (codes) {
-            if (started) {
-              output.push({
-                codes: codes.code,
-                text: '',
-              });
-            } else {
-              output[index].codes = codes.code;
-              started = true;
-            }
+    const getCodesForChar = (o) => {
+      const codesArr = o.style.replace(/\u001b|\[/g, '').replace(/m/g, ';').split(';').slice(0, -1);
+      const codes = codesArr.slice(codesArr.lastIndexOf('0') + 1).filter((c, i, s) => i === s.indexOf(c));
+      return {char: o.content, codes};
+    };
+
+    AnsiParser.parse(data)
+      .map((o, index, self) => {
+        const obj = getCodesForChar(o);
+        buffer += obj.char;
+
+        const codeStr = obj.codes.join(',');
+        const nextStr = self[index + 1] ? getCodesForChar(self[index + 1]).codes.join(',') : null;
+        if (nextStr === codeStr && !(index === self.length - 1)) {
+          return false;
+        }
+        // Clean the left over codes
+        let gotForeground = false;
+        let gotBackground = false;
+        obj.codes.reverse();
+        const codes = obj.codes.filter((code) => {
+          switch (true) {
+            case (!gotBackground && AnsiParse.valueIsBackgroundCode(code)):
+              gotBackground = true;
+              return true;
+            case (!gotForeground && AnsiParse.valueIsForegroundCode(code)):
+              gotForeground = true;
+              return true;
+            case (AnsiParse.valueIsAttributeCode(code)):
+              return true;
+            default:
+              return false;
           }
-          break;
-        default:
-          output[index].text += char;
-          break;
-      }
-    }
-    return output;
-  }
+        });
 
-  /**
-   * It parses a string forward from a starting index and terminates when no more ansi codes
-   * can be found in succession. If ansi codes are passed initially, they will be merged
-   * with any new ansi codes found during the parsing.
-   *
-   * @param {*} str
-   * @param {*} index
-   * @param {*} ansiCodes
-   */
-  static getCodes({str, index, ansiCodes = this.defaultAnsiCode}) {
-    let output, prevChar;
-    let code = '', char = '';
-    let codeBuffer = Object.assign({}, ansiCodes);
-    for (let i = index; i < str.length; i++) {
-      output = {index: i, code: codeBuffer};
-      char = str[i];
-      prevChar = str[i - 1] || null;
-      switch (true) {
-        case (char === '\u001b' && str[i + 1] && str[i + 1] === '['):
-          i++; // Skip next character, it will be [ operator
-          output.index = i;
-          break;
-        case (char === ';' || char === 'm'):
-          let style = Object.assign({}, this.ansiCodes[code]);
-          if (style) {
-            if (style.reset) {
-              codeBuffer = Object.assign({}, this.defaultAnsiCode);
-            } else if (style.type) {
-              codeBuffer.types.push(style.type);
-            } else if (style.bg) {
-              codeBuffer.bg = style.bg;
-            } else if (style.fg) {
-              codeBuffer.fg = style.fg;
-            }
-            code = '';
-          }
-          break;
-        case (prevChar && /[0-9]/.test(char) && /[0-9;\[]/.test(prevChar)):
-          code += char;
-          break;
-        default:
-          // Returns back one index
-          output.index = (i - 1);
-          return output;
+        // Add output to parser
+        let output = { text: buffer };
+        if (codes.join(',') !== '40,37' && codes.length !== 0) {
+          output.classes = codes.map(c => AnsiParse.ansiCodes[c].value);
+        }
+        parsed = [ ...parsed, output ];
+        buffer = '';
+      });
 
-      }
-    }
-    return output;
+    return parsed;
   }
 }
 module.exports = AnsiParse;

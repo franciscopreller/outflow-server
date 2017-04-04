@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "ansi-parser": "^3.2.7",
     "express": "^4.15.2",
     "forever": "^0.14.2",
     "glob": "^7.1.1",
@@ -19,7 +20,7 @@
   },
   "scripts": {
     "start": "forever start index.js",
-    "test": "mocha --recursive --require './test/helpers/chai.js' './test/**/*.test.js'"
+    "test": "mocha --recursive --require ./test/helpers/chai.js ./test/**/*.test.js"
   },
   "author": "",
   "license": "ISC"

@@ -4,7 +4,7 @@ const net = require('net');
 const EventEmitter = require('events');
 const TelnetInput = require('telnet-stream').TelnetInput;
 const TelnetOutput = require('telnet-stream').TelnetOutput;
-const ansiHTML = require('../ansiParse');
+const AnsiParse = require('../ansiParse');
 const constants = require('./constants');
 const handlers = require('./handlers');
 const utils = require('../utils');
@@ -122,8 +122,7 @@ class TelnetSession {
   }
 
   sendOutput(output) {
-    const data = ansiHTML.toLineObjects({str: output.toString()});
-    this.emitter.emit('data', data);
+    this.emitter.emit('data', AnsiParse.parse(output));
   }
 
   receiveCommand(command) {

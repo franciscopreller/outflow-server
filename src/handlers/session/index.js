@@ -23,7 +23,7 @@ module.exports = {
         mqUtils.reply(context, socketId, actions.sessionDisconnected({ uuid }));
       });
       telnet.on('error', (error) => mqUtils.reply(context, socketId, actions.sessionError({ uuid, error })));
-      telnet.on('data', (lines) => mqUtils.reply(context, socketId, actions.sessionOutput({ lines, uuid })));
+      telnet.on('data', (segments) => mqUtils.reply(context, socketId, actions.sessionOutput({ segments, uuid })));
     });
   },
 

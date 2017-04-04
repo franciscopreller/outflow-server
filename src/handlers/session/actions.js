@@ -1,9 +1,9 @@
 const constants = require('./constants');
 
-exports.sessionOutput = ({ lines, uuid }) => ({
+exports.sessionOutput = ({ segments, uuid }) => ({
   type: constants.SESSION_OUTPUT,
   payload: {
-    lines,
+    segments,
     uuid,
   },
 });
