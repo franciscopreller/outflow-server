@@ -1,4 +1,5 @@
 const AnsiParser = require('ansi-parser');
+const COMMAND_INPUT = '\n> ';
 const FOREGROUND_TYPE = 'FOREGROUND_TYPE';
 const BACKGROUND_TYPE = 'BACKGROUND_TYPE';
 const ATTRIBUTE_TYPE = 'ATTRIBUTE_TYPE';
@@ -7,15 +8,30 @@ const RESET_TYPE = 'RESET';
 class AnsiParse {
 
   static valueIsForegroundCode(code) {
-    return AnsiParse.ansiCodes[code].type === FOREGROUND_TYPE;
+    const obj = AnsiParse.ansiCodes[code];
+    if (!obj) {
+      console.error('Undefined ansi code provided', { code });
+      return false;
+    }
+    return obj.type === FOREGROUND_TYPE;
   }
 
   static valueIsBackgroundCode(code) {
-    return AnsiParse.ansiCodes[code].type === BACKGROUND_TYPE;
+    const obj = AnsiParse.ansiCodes[code];
+    if (!obj) {
+      console.error('Undefined ansi code provided', { code });
+      return false;
+    }
+    return obj.type === BACKGROUND_TYPE;
   }
 
   static valueIsAttributeCode(code) {
-    return AnsiParse.ansiCodes[code].type === ATTRIBUTE_TYPE;
+    const obj = AnsiParse.ansiCodes[code];
+    if (!obj) {
+      console.error('Undefined ansi code provided', { code });
+      return false;
+    }
+    return obj.type === ATTRIBUTE_TYPE;
   }
 
   /**
@@ -93,13 +109,26 @@ class AnsiParse {
           }
         });
 
-        // Add output to parser
-        let output = { text: buffer };
-        if (codes.join(',') !== '40,37' && codes.length !== 0) {
-          output.classes = codes.map(c => AnsiParse.ansiCodes[c].value);
+        // Check last chunk for command line input
+        let commandLineInput = null;
+        if (index === self.length - 1 && buffer.substring(buffer.length - 3) === COMMAND_INPUT && buffer.length > 3) {
+          commandLineInput = '\n> ';
+          buffer = buffer.slice(0, -3);
         }
+
+        // Put the output into the parsed segments back
+        let output = { text: buffer };
+        output.classes = codes.map(c => AnsiParse.ansiCodes[c].value);
         parsed = [ ...parsed, output ];
         buffer = '';
+
+        // If we have a commandLineInput, insert it as well
+        if (commandLineInput) {
+          parsed = [...parsed, Object.assign({}, output, {
+            text: COMMAND_INPUT,
+            classes: [AnsiParse.ansiCodes[37].value, AnsiParse.ansiCodes[40].value, 'at-input'],
+          })]
+        }
       });
 
     return parsed;
