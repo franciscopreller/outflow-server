@@ -1,4 +1,4 @@
-const _ = require('lodash');
+const os = require("os");
 const fs = require('fs');
 const net = require('net');
 const EventEmitter = require('events');
@@ -126,7 +126,7 @@ class TelnetSession {
   }
 
   receiveCommand(command) {
-    this.output.write(command + '\n');
+    this.output.write(`${command}\r\n`);
   }
 
 }

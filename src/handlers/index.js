@@ -24,7 +24,6 @@ const handlers = getHandlers();
  */
 function bindHandler(handlerName, context, redis) {
   const sub = context.socket('PULL');
-  console.log(`Binding subscriber handler to: ${handlerName}`);
   sub.on('data', (data) => {
     let payload = {};
     try {
