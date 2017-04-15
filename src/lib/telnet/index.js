@@ -2,8 +2,8 @@ const os = require("os");
 const fs = require('fs');
 const net = require('net');
 const EventEmitter = require('events');
-const TelnetInput = require('telnet-stream').TelnetInput;
-const TelnetOutput = require('telnet-stream').TelnetOutput;
+const TelnetInput = require('./telnet-stream').TelnetInput;
+const TelnetOutput = require('./telnet-stream').TelnetOutput;
 const AnsiParse = require('../ansiParse');
 const constants = require('./constants');
 const handlers = require('./handlers');
@@ -18,9 +18,10 @@ class TelnetSession {
     this.port = connection.port;
     this.uuid = connection.uuid;
     this.socketId = connection.socketId;
+    this.keepAliveRunning = false;
+    this.connected = false;
     this.data = '';
     this.buffer = '';
-    this.timeout = null;
     this.subscribers = [];
 
     // Telnet handlers
@@ -37,6 +38,7 @@ class TelnetSession {
     this.conn = net.createConnection(this.port, this.host, (err) => {
       // Error feedback is handled as event
       if (!err) {
+        this.connected = true;
         this.emitter.emit('connected');
 
         // Set the connection pipes
@@ -46,6 +48,8 @@ class TelnetSession {
     });
 
     this.conn.on('close', () => {
+      this.connected = false;
+
       this.conn.unpipe(this.input);
       this.output.unpipe(this.conn);
       this.subscribers.forEach((sub) => sub.close());
@@ -81,6 +85,18 @@ class TelnetSession {
     return error;
   }
 
+  bindKeepAliveHandler() {
+    // @TODO: Get keep-alive settings from user
+    const KEEP_ALIVE_INTERVAL = 20000;
+    const interval = setInterval(() => {
+      if (this.keepAliveRunning && this.connected) {
+        this.output.writeDo(constants.TELNET_GA);
+      } else {
+        clearInterval(interval);
+      }
+    }, KEEP_ALIVE_INTERVAL);
+  }
+
   bindDisconnectHandler() {
     this.subscribers.push(utils.subscribe(this.context, `${session.SESSION_DISCONNECT}.${this.uuid}`, (uuid) => {
       if (this.uuid === uuid) {
@@ -98,27 +114,22 @@ class TelnetSession {
   }
 
   bindOutputProcessing() {
+    // Incoming data
     this.input.on('data', (data) => {
-      this.buffer += data;
-
-      // There appears to be no sure-fire way to tell when data packets are done streaming
-      // currently, so this is a bit of a hack to ensure it's done receiving, by using a
-      // 10 millisecond delay before sending it back to the client, if more data comes in
-      // before that delay, then keep buffering and add another 10 millisecond delay
-      clearTimeout(this.timeout);
-      this.timeout = setTimeout(() => {
-        this.sendOutput(this.buffer);
-        this.buffer = '';
-      }, 20);
+      if (!this.keepAliveRunning) {
+        this.keepAliveRunning = true;
+        this.bindKeepAliveHandler();
+      }
+      this.sendOutput(data.toString())
     });
 
     // Telnet events
-    this.input.on('command', handlers.commandHandler(this.context, this.socketId, this.uuid));
-    this.input.on('do', handlers.doHandler(this.context, this.socketId, this.uuid));
-    this.input.on('dont', handlers.dontHandler(this.context, this.socketId, this.uuid));
-    this.input.on('sub', handlers.subHandler(this.context, this.socketId, this.uuid));
-    this.input.on('will', handlers.willHandler(this.context, this.socketId, this.uuid));
-    this.input.on('wont', handlers.wontHandler(this.context, this.socketId, this.uuid));
+    this.input.on('command', handlers.commandHandler(this.output, this.context, this.socketId, this.uuid));
+    this.input.on('do', handlers.doHandler(this.output, this.context, this.socketId, this.uuid));
+    this.input.on('dont', handlers.dontHandler(this.output, this.context, this.socketId, this.uuid));
+    this.input.on('sub', handlers.subHandler(this.output, this.context, this.socketId, this.uuid));
+    this.input.on('will', handlers.willHandler(this.output, this.context, this.socketId, this.uuid));
+    this.input.on('wont', handlers.wontHandler(this.output, this.context, this.socketId, this.uuid));
   }
 
   sendOutput(output) {

@@ -12,13 +12,15 @@ module.exports = {
     const session = new TelnetSession({ host, port, uuid, socketId }, context);
 
     // Connection to session
-    console.log(`Initiating new session connection to ${host}:${port}`);
+    console.log(`[${userId}] Initiating new session connection to ${host}:${port}`);
     session.start().then((telnet) => {
       telnet.on('connected', () => {
+        console.log(`[${userId}] Connected to ${host}:${port}`);
         utils.setSession(redis, userId, { uuid, host, port });
         mqUtils.reply(context, socketId, actions.sessionConnected({ uuid }));
       });
       telnet.on('closed', () => {
+        console.log(`[${userId}] Disconnected from ${host}:${port}`);
         utils.unsetSession(redis, userId, uuid);
         mqUtils.reply(context, socketId, actions.sessionDisconnected({ uuid }));
       });

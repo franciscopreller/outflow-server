@@ -30,10 +30,6 @@ function getAllSessionKeys(redis, userId) {
     });
 }
 
-function sendDisconnectMessage(context) {
-
-}
-
 exports.getSession = getSession;
 exports.getAllSessionKeys = getAllSessionKeys;
 exports.setSession = setSession;
