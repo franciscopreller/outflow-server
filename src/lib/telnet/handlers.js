@@ -11,12 +11,13 @@ function commandHandler(telnetOutput, context, socketId, uuid) {
     switch (option) {
       case constants.TELNET_EOR:
       case constants.TELNET_GA:
-        utils.reply(context, socketId, actions.sendWillGoAhead(uuid));
+        utils.publish(context, `${constants.SESSION_DO_GO_AHEAD}.${uuid}`, uuid);
+        // utils.reply(context, socketId, actions.sendWillGoAhead(uuid));
         break;
       default:
         break;
     }
-    console.log(`COMMAND: ${getTelnetOption(option)}`);
+    console.log(`[${uuid}] COMMAND: ${getTelnetOption(option)}`);
   };
 }
 
@@ -40,7 +41,7 @@ function doHandler(telnetOutput, context, socketId, uuid) {
       default:
         break;
     }
-    console.log(`DO: ${getTelnetOption(option)}`);
+    console.log(`[${uuid}] DO: ${getTelnetOption(option)}`);
   };
 }
 
@@ -61,7 +62,7 @@ function dontHandler(telnetOutput, context, socketId, uuid) {
       default:
         break;
     }
-    console.log(`DON'T: ${getTelnetOption(option)}`);
+    console.log(`[${uuid}] DON'T: ${getTelnetOption(option)}`);
   };
 }
 
@@ -72,7 +73,7 @@ function subHandler(telnetOutput, context, socketId, uuid) {
       default:
         break;
     }
-    console.log(`DON'T: ${getTelnetOption(option)}`, buffer);
+    console.log(`[${uuid}] DON'T: ${getTelnetOption(option)}`, buffer);
   };
 }
 
@@ -97,7 +98,7 @@ function willHandler(telnetOutput, context, socketId, uuid) {
         telnetOutput.writeDo(constants.TELNET_END_OF_RECORD);
         break;
     }
-    console.log(`WILL: ${getTelnetOption(option)}`);
+    console.log(`[${uuid}] WILL: ${getTelnetOption(option)}`);
   };
 }
 
@@ -119,7 +120,7 @@ function wontHandler(telnetOutput, context, socketId, uuid) {
         utils.reply(context, socketId, actions.sendWontHideEcho(uuid));
         break;
     }
-    console.log(`WONT: ${getTelnetOption(option)}`);
+    console.log(`[${uuid}] WONT: ${getTelnetOption(option)}`);
   };
 }
 

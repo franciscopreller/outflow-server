@@ -4,11 +4,12 @@ const net = require('net');
 const EventEmitter = require('events');
 const TelnetInput = require('./telnet-stream').TelnetInput;
 const TelnetOutput = require('./telnet-stream').TelnetOutput;
-const AnsiParse = require('../ansiParse');
+const AnsiParse = require('../parse');
 const constants = require('./constants');
 const handlers = require('./handlers');
 const utils = require('../utils');
 const session = require('../../handlers/session/constants');
+const actions = require('./actions');
 
 class TelnetSession {
   constructor(connection, context) {
@@ -18,6 +19,7 @@ class TelnetSession {
     this.port = connection.port;
     this.uuid = connection.uuid;
     this.socketId = connection.socketId;
+    this.goAhead = true;
     this.keepAliveRunning = false;
     this.connected = false;
     this.data = '';
@@ -114,13 +116,35 @@ class TelnetSession {
   }
 
   bindOutputProcessing() {
+    this.subscribers.push(utils.subscribe(this.context, `${constants.SESSION_DO_GO_AHEAD}.${this.uuid}`, () => {
+      this.goAhead = false;
+      // Get the last line
+      const buffer = this.buffer;
+      const lastIndex = buffer.lastIndexOf('\n') + 1;
+      const prompt = buffer.slice(lastIndex);
+
+      utils.reply(this.context, this.socketId, actions.sendWillGoAhead(this.uuid));
+      this.sendOutput(`${buffer.slice(0, lastIndex)}{%OUTFLOW_PROMPT_START%}${prompt}{%OUTFLOW_PROMPT_END%}`);
+    }));
+
     // Incoming data
     this.input.on('data', (data) => {
       if (!this.keepAliveRunning) {
         this.keepAliveRunning = true;
         this.bindKeepAliveHandler();
       }
-      this.sendOutput(data.toString())
+
+      // Keep all sent data in a buffer
+      this.buffer += data;
+
+      // Send output
+      setTimeout(() => {
+        // Only send data if go ahead is issued, this may be hijacked by the go-ahead subscriber
+        // so it can doctor the response
+        if (this.goAhead) {
+          this.sendOutput(this.buffer);
+        }
+      }, 50);
     });
 
     // Telnet events
@@ -133,7 +157,11 @@ class TelnetSession {
   }
 
   sendOutput(output) {
-    this.emitter.emit('data', AnsiParse.parse(output));
+    if (output.length > 0) {
+      this.emitter.emit('data', AnsiParse.parse(output));
+      this.buffer = '';
+      this.goAhead = true;
+    }
   }
 
   receiveCommand(command) {

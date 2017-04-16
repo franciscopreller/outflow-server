@@ -109,18 +109,22 @@ class AnsiParse {
       });
 
       // Put the output into the parsed segments back
-      let output = { text: AnsiParser.removeAnsi(buffer) };
+      let output = { text: buffer };
       output.classes = codes.map(c => AnsiParse.ansiCodes[c].value);
+
+      // Find a prompt if there is one on this output
+      if (output.text.indexOf('{%OUTFLOW_PROMPT_START%}') !== -1) {
+        output.text = output.text.replace('{%OUTFLOW_PROMPT_START%}', '');
+        output.classes = [ ...output.classes, 'at-prompt-start' ];
+      }
+      if (output.text.indexOf('{%OUTFLOW_PROMPT_END%}') !== -1) {
+        output.text = output.text.replace('{%OUTFLOW_PROMPT_END%}', '');
+        output.classes = [ ...output.classes, 'at-prompt-end' ];
+      }
+
+      // Set and keep parsing
       parsed = [ ...parsed, output ];
       buffer = '';
-
-      // If we have a commandLineInput, insert it as well
-      // if (commandLineInput) {
-      //   parsed = [...parsed, Object.assign({}, output, {
-      //     text: COMMAND_INPUT,
-      //     classes: [AnsiParse.ansiCodes[37].value, AnsiParse.ansiCodes[40].value, 'at-input'],
-      //   })]
-      // }
     });
 
     return parsed;

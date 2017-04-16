@@ -1,4 +1,4 @@
-const AnsiParse = require('../../src/lib/ansiParse');
+const AnsiParse = require('../../src/lib/parse');
 
 const output = `[0;37;40m> [31mWide Hallway[0;37;40m
 

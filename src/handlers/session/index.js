@@ -34,7 +34,6 @@ module.exports = {
   },
 
   [constants.SESSION_COMMAND]: (context, redis, data) => {
-    // @TODO: Convert command here and send new command to actual session
     mqUtils.publish(context, `${constants.SESSION_COMMAND}.${data.payload.uuid}`, data.payload.command);
   },
 
