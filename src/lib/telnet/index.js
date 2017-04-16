@@ -29,17 +29,18 @@ class TelnetSession {
     // Telnet handlers
     this.input = new TelnetInput();
     this.output = new TelnetOutput();
-
-    // Bindings
-    this.bindOutputProcessing();
-    this.bindCommandHandler();
-    this.bindDisconnectHandler();
   }
 
   start() {
     this.conn = net.createConnection(this.port, this.host, (err) => {
       // Error feedback is handled as event
       if (!err) {
+        // Bind handlers once connection issued
+        this.bindOutputProcessing();
+        this.bindCommandHandler();
+        this.bindDisconnectHandler();
+
+        // Set session state and emit the connected state back to the handler
         this.connected = true;
         this.emitter.emit('connected');
 
@@ -50,21 +51,23 @@ class TelnetSession {
     });
 
     this.conn.on('close', () => {
+      // Set the connected state to false
       this.connected = false;
 
+      // Unpipe connections
       this.conn.unpipe(this.input);
       this.output.unpipe(this.conn);
+
+      // Close internal binding subscribers
       this.subscribers.forEach((sub) => sub.close());
 
-      // Emit disconnected
+      // Emit closed back to the handlers
       setTimeout(() => this.emitter.emit('closed'), 100);
     });
 
-    this.conn.on('error', (err) => {
-      this.emitter.emit('error', this.getConnectionError(err));
-    });
+    this.conn.on('error', (err) => this.emitter.emit('error', this.getConnectionError(err)));
 
-    return Promise.resolve(this.emitter);
+    return this.emitter;
   }
 
   getConnectionError(err) {
@@ -123,8 +126,10 @@ class TelnetSession {
       const lastIndex = buffer.lastIndexOf('\n') + 1;
       const prompt = buffer.slice(lastIndex);
 
-      utils.reply(this.context, this.socketId, actions.sendWillGoAhead(this.uuid));
-      this.sendOutput(`${buffer.slice(0, lastIndex)}{%OUTFLOW_PROMPT_START%}${prompt}{%OUTFLOW_PROMPT_END%}`);
+      // Send the output, then the prompt
+      this.sendOutput(buffer.slice(0, lastIndex));
+      // Small delay for prompt to ensure it arrives after output
+      setTimeout(() => this.sendPrompt(prompt), 10);
     }));
 
     // Incoming data
@@ -139,11 +144,8 @@ class TelnetSession {
 
       // Send output
       setTimeout(() => {
-        // Only send data if go ahead is issued, this may be hijacked by the go-ahead subscriber
-        // so it can doctor the response
-        if (this.goAhead) {
-          this.sendOutput(this.buffer);
-        }
+        // If GA has been issued, this.goAhead will be false, and the GA handler will
+        if (this.goAhead) this.sendOutput(this.buffer);
       }, 50);
     });
 
@@ -161,6 +163,12 @@ class TelnetSession {
       this.emitter.emit('data', AnsiParse.parse(output));
       this.buffer = '';
       this.goAhead = true;
+    }
+  }
+
+  sendPrompt(prompt) {
+    if (prompt.length > 0) {
+      this.emitter.emit('prompt', AnsiParse.parse(prompt));
     }
   }
 

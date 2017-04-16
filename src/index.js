@@ -8,7 +8,7 @@ const context = new require('rabbit.js').createContext(RABBIT_URL);
 context.on('ready', () => {
   const server = require('net').createServer();
   server.listen(PORT, () => {
-    console.log('%%% Telnet client running as process: %s on port: %s', process.pid, PORT);
+    console.log(`${'%%%'} Telnet client running as process: ${process.pid} on port: ${PORT}`);
 
     // Connect to redis instance
     const redis = new Redis(REDIS_URL);
@@ -16,7 +16,11 @@ context.on('ready', () => {
     // Connect all handlers
     const subscribers = Handlers.handlerNames.map((handler) => Handlers.bindHandler(handler, context, redis));
     process.on('exit', () => {
-      subscribers.forEach((sub) => sub.close());
+      subscribers.forEach((sub) => {
+        try {
+          sub.close()
+        } catch(e) {}
+      });
       context.close();
     });
   });

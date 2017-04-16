@@ -1,6 +1,8 @@
 const actions = require('./actions');
 const constants = require('./constants');
 const utils = require('../utils');
+const debug = require('../debug');
+const pkg = require('../../../package.json');
 
 function getTelnetOption(option) {
   return Object.keys(constants).find(key => constants[key] === parseInt(option)) || option;
@@ -12,12 +14,11 @@ function commandHandler(telnetOutput, context, socketId, uuid) {
       case constants.TELNET_EOR:
       case constants.TELNET_GA:
         utils.publish(context, `${constants.SESSION_DO_GO_AHEAD}.${uuid}`, uuid);
-        // utils.reply(context, socketId, actions.sendWillGoAhead(uuid));
         break;
       default:
         break;
     }
-    console.log(`[${uuid}] COMMAND: ${getTelnetOption(option)}`);
+    debug(`[${uuid}] COMMAND: ${getTelnetOption(option)}`);
   };
 }
 
@@ -34,14 +35,21 @@ function commandHandler(telnetOutput, context, socketId, uuid) {
 function doHandler(telnetOutput, context, socketId, uuid) {
   return (option) => {
     switch (option) {
+      case constants.TELNET_TERMTYPE:
+        telnetOutput.writeWill(constants.TELNET_TERMTYPE);
+        break;
       case constants.TELNET_NAWS:
-        // @TODO: Implement NAWS
-        telnetOutput.writeWont(constants.TELNET_NAWS);
+        telnetOutput.writeWill(constants.TELNET_NAWS);
+        // See example of window size setting
+        // const nawsBuffer = new Buffer(4);
+        // nawsBuffer.writeInt16BE(60, 0);
+        // nawsBuffer.writeInt16BE(50, 2);
+        // telnetOutput.writeSub(constants.TELNET_NAWS, nawsBuffer);
         break;
       default:
         break;
     }
-    console.log(`[${uuid}] DO: ${getTelnetOption(option)}`);
+    debug(`[${uuid}] DO: ${getTelnetOption(option)}`);
   };
 }
 
@@ -62,18 +70,27 @@ function dontHandler(telnetOutput, context, socketId, uuid) {
       default:
         break;
     }
-    console.log(`[${uuid}] DON'T: ${getTelnetOption(option)}`);
+    debug(`[${uuid}] DON'T: ${getTelnetOption(option)}`);
   };
 }
 
 function subHandler(telnetOutput, context, socketId, uuid) {
+  let i, j, ref;
   return (option, buffer) => {
     switch (option) {
-      // @TODO: Add handlers
+      case constants.TELNET_TERMTYPE:
+        const termTypeBuf = Buffer.from(`Outflow v${pkg.version}`);
+        const subBuf = new Buffer(buffer.length + termTypeBuf.length);
+        subBuf[0] = buffer;
+        for (i = j = 0, ref = termTypeBuf.length - 1; 0 <= ref ? j <= ref : j >= ref; i = 0 <= ref ? ++j : --j) {
+          subBuf[i + 3] = termTypeBuf[i];
+        }
+        telnetOutput.writeSub(constants.TELNET_TERMTYPE, subBuf);
+        break;
       default:
         break;
     }
-    console.log(`[${uuid}] DON'T: ${getTelnetOption(option)}`, buffer);
+    debug(`[${uuid}] SUB: ${getTelnetOption(option)}`, buffer.toString());
   };
 }
 
@@ -98,7 +115,7 @@ function willHandler(telnetOutput, context, socketId, uuid) {
         telnetOutput.writeDo(constants.TELNET_END_OF_RECORD);
         break;
     }
-    console.log(`[${uuid}] WILL: ${getTelnetOption(option)}`);
+    debug(`[${uuid}] WILL: ${getTelnetOption(option)}`);
   };
 }
 
@@ -120,7 +137,7 @@ function wontHandler(telnetOutput, context, socketId, uuid) {
         utils.reply(context, socketId, actions.sendWontHideEcho(uuid));
         break;
     }
-    console.log(`[${uuid}] WONT: ${getTelnetOption(option)}`);
+    debug(`[${uuid}] WON'T: ${getTelnetOption(option)}`);
   };
 }
 

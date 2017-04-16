@@ -1,5 +1,13 @@
 const constants = require('./constants');
 
+exports.sessionPrompt = ({ segments, uuid }) => ({
+  type: constants.SESSION_PROMPT,
+  payload: {
+    segments,
+    uuid,
+  }
+});
+
 exports.sessionOutput = ({ segments, uuid }) => ({
   type: constants.SESSION_OUTPUT,
   payload: {

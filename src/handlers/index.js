@@ -40,7 +40,7 @@ function bindHandler(handlerName, context, redis) {
     }
   });
 
-  console.log('Adding queue', handlerName);
+  console.log(`${'%%%'} Adding queue: ${handlerName}`);
   sub.connect(handlerName);
 
   return sub;
