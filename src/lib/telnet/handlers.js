@@ -81,7 +81,6 @@ function subHandler(telnetOutput, context, socketId, uuid) {
       case constants.TELNET_TERMTYPE:
         const termType = `Outflow v${pkg.version}`;
         const termTypeBuf = Buffer.from(termType);
-        console.log('Sending Terminal Type:', { termType, bufferLength: buffer.length, termTypeLength: termTypeBuf.length, bufferStr: buffer.toString(), termTypeBufferStr: termTypeBuf.toString() });
         const subBuf = new Buffer(buffer.length + termTypeBuf.length);
         subBuf[0] = buffer;
         for (i = j = 0, ref = termTypeBuf.length - 1; 0 <= ref ? j <= ref : j >= ref; i = 0 <= ref ? ++j : --j) {
