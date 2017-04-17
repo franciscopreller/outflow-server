@@ -112,16 +112,6 @@ class AnsiParse {
       let output = { text: buffer };
       output.classes = codes.map(c => AnsiParse.ansiCodes[c].value);
 
-      // Find a prompt if there is one on this output
-      if (output.text.indexOf('{%OUTFLOW_PROMPT_START%}') !== -1) {
-        output.text = output.text.replace('{%OUTFLOW_PROMPT_START%}', '');
-        output.classes = [ ...output.classes, 'at-prompt-start' ];
-      }
-      if (output.text.indexOf('{%OUTFLOW_PROMPT_END%}') !== -1) {
-        output.text = output.text.replace('{%OUTFLOW_PROMPT_END%}', '');
-        output.classes = [ ...output.classes, 'at-prompt-end' ];
-      }
-
       // Set and keep parsing
       parsed = [ ...parsed, output ];
       buffer = '';

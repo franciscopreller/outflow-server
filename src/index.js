@@ -15,14 +15,17 @@ context.on('ready', () => {
 
     // Connect all handlers
     const subscribers = Handlers.handlerNames.map((handler) => Handlers.bindHandler(handler, context, redis));
-    process.on('exit', () => {
+    process.on('SIGTERM', () => {
       subscribers.forEach((sub) => {
         try {
           sub.close()
         } catch(e) {}
       });
-      context.close();
+      setTimeout(() => {
+        console.log('Exiting gracefully...');
+        context.close();
+        process.exit(0);
+      }, 100);
     });
   });
 });
-process.on('SIGTERM', () => process.exit(0));

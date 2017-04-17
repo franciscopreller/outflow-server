@@ -9,6 +9,7 @@ const handlers = require('./handlers');
 const utils = require('../utils');
 const session = require('../../handlers/session/constants');
 const actions = require('./actions');
+const sessionActions = require('../../handlers/session/actions');
 
 class TelnetSession {
   constructor(connection, context) {
@@ -64,6 +65,11 @@ class TelnetSession {
     });
 
     this.conn.on('error', (err) => this.emitter.emit('error', this.getConnectionError(err)));
+    // Catch unexpected exits
+    process.on('SIGTERM', () => {
+      utils.reply(this.context, this.socketId, sessionActions.sessionDisconnected({ uuid: this.uuid }));
+      console.log(`Exiting connection [${this.uuid}] gracefully...`);
+    });
 
     return this.emitter;
   }

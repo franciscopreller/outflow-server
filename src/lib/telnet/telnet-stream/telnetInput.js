@@ -67,6 +67,7 @@ const TELNET_WONT = 252;
 const TELNET_GA = 249;
 const TELNET_EOR = 239;
 const Transform = require('stream').Transform;
+const AnsiParser = require('ansi-parser');
 
 class TelnetInput extends Transform {
   constructor(options) {
@@ -87,20 +88,26 @@ class TelnetInput extends Transform {
       }
       this.handle(chunk[i]);
     }
-    if (this.dataBufIndex > 0 && !this.dataHasPrompt) {
-      this.emit('data', this.dataBuf.slice(0, this.dataBufIndex));
-    } else if (this.dataBufIndex > 0 && this.dataHasPrompt) {
-      // Emit the data and the prompt in separate streams
+    if (this.dataBufIndex > 0) {
       const buffer = this.dataBuf.slice(0, this.dataBufIndex);
-      const lastIndex = buffer.lastIndexOf('\n') + 1;
-      const data = buffer.slice(0, lastIndex);
-      const prompt = buffer.slice(lastIndex);
+      if (this.dataHasPrompt) {
+        // Emit the data and the prompt in separate streams
+        const lastIndex = buffer.lastIndexOf('\n') + 1;
+        let data = buffer.slice(0, lastIndex);
+        let prompt = buffer.slice(lastIndex);
+        this.emit('data', data);
 
-      this.emit('data', data);
-      this.emit('prompt', prompt);
+        console.log('Checking prompt:', AnsiParser.removeAnsi(prompt.toString()));
+        if (prompt.toString().replace(/ /g, '').replace(/\r?\n/g, '').length > 0) {
+          console.log('Sending prompt...');
+          this.emit('prompt', prompt);
+        }
 
-      // Set the state of dataHasPromtp back to false
-      this.dataHasPrompt = false;
+        // Set the state of dataHasPromtp back to false
+        this.dataHasPrompt = false;
+      } else {
+        this.emit('data', buffer);
+      }
     }
     return done();
   }

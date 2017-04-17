@@ -7,6 +7,7 @@
  * @returns {*}
  */
 function reply(context, socketId, payload) {
+  console.log('Publishing...');
   publish(context, `ws.reply.${socketId}`, payload);
 }
 
