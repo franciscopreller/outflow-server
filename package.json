@@ -1,6 +1,6 @@
 {
   "name": "outflow-server",
-  "version": "0.0.1-alpha",
+  "version": "0.0.2-alpha",
   "description": "",
   "main": "index.js",
   "dependencies": {
@@ -10,8 +10,7 @@
     "glob": "^7.1.1",
     "ioredis": "^2.5.0",
     "lodash": "^4.17.4",
-    "rabbit.js": "^0.4.4",
-    "telnet-stream": "^0.0.4"
+    "rabbit.js": "^0.4.4"
   },
   "devDependencies": {
     "chai": "^3.5.0",
