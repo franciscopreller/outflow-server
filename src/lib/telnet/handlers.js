@@ -11,10 +11,6 @@ function getTelnetOption(option) {
 function commandHandler(telnetOutput, context, socketId, uuid) {
   return (option) => {
     switch (option) {
-      case constants.TELNET_EOR:
-      case constants.TELNET_GA:
-        utils.publish(context, `${constants.SESSION_DO_GO_AHEAD}.${uuid}`, uuid);
-        break;
       default:
         break;
     }

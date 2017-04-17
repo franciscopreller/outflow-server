@@ -1,4 +1,3 @@
-const os = require("os");
 const fs = require('fs');
 const net = require('net');
 const EventEmitter = require('events');
@@ -19,12 +18,11 @@ class TelnetSession {
     this.port = connection.port;
     this.uuid = connection.uuid;
     this.socketId = connection.socketId;
-    this.goAhead = true;
     this.keepAliveRunning = false;
     this.connected = false;
-    this.data = '';
-    this.buffer = '';
     this.subscribers = [];
+    this.buffer = '';
+    this.prompt = '';
 
     // Telnet handlers
     this.input = new TelnetInput();
@@ -90,8 +88,10 @@ class TelnetSession {
     return error;
   }
 
+  /**
+   * Keep-alive sends TELNET_GA back to the server every 20 seconds to keep connections active
+   */
   bindKeepAliveHandler() {
-    // @TODO: Get keep-alive settings from user
     const KEEP_ALIVE_INTERVAL = 20000;
     const interval = setInterval(() => {
       if (this.keepAliveRunning && this.connected) {
@@ -102,6 +102,9 @@ class TelnetSession {
     }, KEEP_ALIVE_INTERVAL);
   }
 
+  /**
+   * Receives messages to disconnect from the user
+   */
   bindDisconnectHandler() {
     this.subscribers.push(utils.subscribe(this.context, `${session.SESSION_DISCONNECT}.${this.uuid}`, (uuid) => {
       if (this.uuid === uuid) {
@@ -110,43 +113,36 @@ class TelnetSession {
     }));
   }
 
+  /**
+   * Receives commands from the user
+   */
   bindCommandHandler() {
     this.subscribers.push(utils.subscribe(this.context, `${session.SESSION_COMMAND}.${this.uuid}`, (command) => {
       if (typeof command !== 'undefined') {
-        this.receiveCommand(command);
+        this.output.write(`${command}\r\n`);
       }
     }));
   }
 
+  /**
+   * Process the output
+   */
   bindOutputProcessing() {
-    this.subscribers.push(utils.subscribe(this.context, `${constants.SESSION_DO_GO_AHEAD}.${this.uuid}`, () => {
-      this.goAhead = false;
-      // Get the last line
-      const buffer = this.buffer;
-      const lastIndex = buffer.lastIndexOf('\n') + 1;
-      const prompt = buffer.slice(lastIndex);
-
-      // Send the output, then the prompt
-      this.sendOutput(buffer.slice(0, lastIndex));
-      // Small delay for prompt to ensure it arrives after output
-      setTimeout(() => this.sendPrompt(prompt), 10);
-    }));
-
-    // Incoming data
+    this.input.on('prompt', (prompt) => this.prompt = prompt.toString());
     this.input.on('data', (data) => {
+      // First time we receive data, bind keep-alive
       if (!this.keepAliveRunning) {
         this.keepAliveRunning = true;
         this.bindKeepAliveHandler();
       }
-
-      // Keep all sent data in a buffer
+      // Buffer any multi-block data incoming
       this.buffer += data;
-
-      // Send output
       setTimeout(() => {
-        // If GA has been issued, this.goAhead will be false, and the GA handler will
-        if (this.goAhead) this.sendOutput(this.buffer);
-      }, 50);
+        if (this.buffer.length) this.emitter.emit('data', AnsiParse.parse(this.buffer));
+        if (this.prompt.length) this.emitter.emit('prompt', AnsiParse.parse(this.prompt));
+        this.buffer = '';
+        this.prompt = '';
+      }, 20);
     });
 
     // Telnet events
@@ -156,24 +152,6 @@ class TelnetSession {
     this.input.on('sub', handlers.subHandler(this.output, this.context, this.socketId, this.uuid));
     this.input.on('will', handlers.willHandler(this.output, this.context, this.socketId, this.uuid));
     this.input.on('wont', handlers.wontHandler(this.output, this.context, this.socketId, this.uuid));
-  }
-
-  sendOutput(output) {
-    if (output.length > 0) {
-      this.emitter.emit('data', AnsiParse.parse(output));
-      this.buffer = '';
-      this.goAhead = true;
-    }
-  }
-
-  sendPrompt(prompt) {
-    if (prompt.length > 0) {
-      this.emitter.emit('prompt', AnsiParse.parse(prompt));
-    }
-  }
-
-  receiveCommand(command) {
-    this.output.write(`${command}\r\n`);
   }
 
 }

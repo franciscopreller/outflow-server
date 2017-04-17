@@ -16,6 +16,7 @@
 const SUBNEG_BUFFER_SIZE = 8192;
 
 // ----------------------------------------------------------------------
+//       EOR                 239    End of record.
 //       SE                  240    End of subnegotiation parameters.
 //       NOP                 241    No operation.
 //       Data Mark           242    The data stream portion of a Synch.
@@ -63,11 +64,14 @@ const TELNET_SUB_BEGIN = 250;
 const TELNET_SUB_END = 240;
 const TELNET_WILL = 251;
 const TELNET_WONT = 252;
+const TELNET_GA = 249;
+const TELNET_EOR = 239;
 const Transform = require('stream').Transform;
 
 class TelnetInput extends Transform {
   constructor(options) {
     super(options);
+    this.dataHasPrompt = false;
     this.state = TELNET_DATA;
     this.subBuf = new Buffer(SUBNEG_BUFFER_SIZE);
   }
@@ -77,10 +81,26 @@ class TelnetInput extends Transform {
     this.dataBuf = new Buffer(chunk.length);
     this.dataBufIndex = 0;
     for (i = j = 0, ref = chunk.length - 1; 0 <= ref ? j <= ref : j >= ref; i = 0 <= ref ? ++j : --j) {
+      // We are better off handling the GA|EOR state here than outside of the telnetInput class
+      if (this.state === TELNET_COMMAND && (chunk[i] === TELNET_GA || chunk[i] === TELNET_EOR)) {
+        this.dataHasPrompt = true;
+      }
       this.handle(chunk[i]);
     }
-    if (this.dataBufIndex > 0) {
-      this.push(this.dataBuf.slice(0, this.dataBufIndex));
+    if (this.dataBufIndex > 0 && !this.dataHasPrompt) {
+      this.emit('data', this.dataBuf.slice(0, this.dataBufIndex));
+    } else if (this.dataBufIndex > 0 && this.dataHasPrompt) {
+      // Emit the data and the prompt in separate streams
+      const buffer = this.dataBuf.slice(0, this.dataBufIndex);
+      const lastIndex = buffer.lastIndexOf('\n') + 1;
+      const data = buffer.slice(0, lastIndex);
+      const prompt = buffer.slice(lastIndex);
+
+      this.emit('data', data);
+      this.emit('prompt', prompt);
+
+      // Set the state of dataHasPromtp back to false
+      this.dataHasPrompt = false;
     }
     return done();
   }
