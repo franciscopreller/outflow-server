@@ -3,13 +3,14 @@ const FOREGROUND_TYPE = 'FOREGROUND_TYPE';
 const BACKGROUND_TYPE = 'BACKGROUND_TYPE';
 const ATTRIBUTE_TYPE = 'ATTRIBUTE_TYPE';
 const RESET_TYPE = 'RESET';
+const debug = require('./debug');
 
 class AnsiParse {
 
   static valueIsForegroundCode(code) {
     const obj = AnsiParse.ansiCodes[code];
     if (!obj) {
-      console.error('Undefined ansi code provided', { code });
+      debug('Undefined ansi code provided', { code });
       return false;
     }
     return obj.type === FOREGROUND_TYPE;
@@ -18,7 +19,7 @@ class AnsiParse {
   static valueIsBackgroundCode(code) {
     const obj = AnsiParse.ansiCodes[code];
     if (!obj) {
-      console.error('Undefined ansi code provided', { code });
+      debug('Undefined ansi code provided', { code });
       return false;
     }
     return obj.type === BACKGROUND_TYPE;
@@ -27,7 +28,7 @@ class AnsiParse {
   static valueIsAttributeCode(code) {
     const obj = AnsiParse.ansiCodes[code];
     if (!obj) {
-      console.error('Undefined ansi code provided', { code });
+      debug('Undefined ansi code provided', { code });
       return false;
     }
     return obj.type === ATTRIBUTE_TYPE;
